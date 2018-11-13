@@ -10,6 +10,14 @@
   },
   "type": "magento2-module",
   "version": "1.2.9",
+  "minimum-stability": "alpha",
+  "prefer-stable": true,
+  "repositories": [
+      {
+          "type": "composer",
+          "url": "https://github.com/mastercelta/SimpleWebpay"
+      }       
+  ],
   "license": [
     "OSL-3.0",
     "AFL-3.0"
