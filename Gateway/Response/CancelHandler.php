@@ -40,9 +40,7 @@ class CancelHandler implements HandlerInterface
           $ResponseSave = new \stdClass();
          // $this->config->getValue('payment_action');
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-       // $model = $objectManager->create('Magento\Sales\Model\Order\Payment\Transaction')->getCollection();
-    
- //   $payment->setTransactionAdditionalInfo(\Magento\Sales\Model\Order\Payment\Transaction::RAW_DETAILS, $newData);
+        
         $payment->setIsTransactionClosed(true);
         $payment->setShouldCloseParentTransaction(true);
         
