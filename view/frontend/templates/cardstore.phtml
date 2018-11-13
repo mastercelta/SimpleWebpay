@@ -1,0 +1,9 @@
+<?php 
+    $Response =  $block->getcardmanager();
+    $url = $block->geturlprocess(); 
+?>
+<script type="text/x-magento-init">
+ { "#viewprocess": { "Cenpos_SimpleWebpay/js/cardstore": {
+     "url":"<?php echo $Response->Url ?>", "data":"<?php echo $Response->Data ?>"} } 
+}</script>
+<div id="viewprocess"></div>

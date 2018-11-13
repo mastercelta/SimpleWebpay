@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © 2015 Magento. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="payment" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="1000" translate="label">
+            <group id="swppayment" translate="label" type="text" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>SimpleWebpay</label>
+                <field id="active" translate="label" type="select" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Enabled</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="merchantid" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="20" translate="label"
+                       type="text">
+                    <label>Merchant Encrypted</label>
+                </field>
+                <field id="secretkey" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="30" translate="label"
+                       type="text">
+                    <label>Secret Key</label>
+                </field>
+                <field id="url" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="40" translate="label"
+                       type="text">
+                    <label>Url</label>
+                </field>
+                <field id="url_view" showInDefault="1" showInStore="1" showInWebsite="1" sortOrder="40" translate="label"
+                       type="text">
+                    <label>Url View Process</label>
+                </field>
+                <field id="iscvv" translate="label" type="select" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Enabled CVV</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                 <field id="payment_action" translate="label" type="select" sortOrder="60" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Payment Action</label>
+                    <source_model>Cenpos\SimpleWebpay\Model\Payment\PaymentAction</source_model>
+                </field>
+                <field id="usetoken" translate="label" type="select" sortOrder="70" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Use Tokens</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                 <field id="version" translate="label" type="label" sortOrder="80" showInDefault="1" showInWebsite="1" showInStore="0">
+                    <label>Version 1.0.1</label>
+                </field>
+            </group>
+            <!-- payment-group -->
+        </section>
+    </system>
+</config>

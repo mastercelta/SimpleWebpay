@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © 2016 Magento. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Payment Method Facade configuration -->
+    <virtualType name="SimpleWebpayGatewayFacade" type="Magento\Payment\Model\Method\Adapter">
+        <arguments>
+            <argument name="code" xsi:type="const">Cenpos\SimpleWebpay\Model\Ui\ConfigProvider::CODE</argument>
+            <argument name="formBlockType" xsi:type="string">Magento\Payment\Block\Form</argument>
+            <argument name="infoBlockType" xsi:type="string">Cenpos\SimpleWebpay\Block\Info</argument>
+            <argument name="valueHandlerPool" xsi:type="object">SimpleWebpayGatewayValueHandlerPool</argument>
+            <argument name="commandPool" xsi:type="object">SimpleWebpayGatewayCommandPool</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Configuration reader -->
+    <virtualType name="SimpleWebpayGatewayConfig" type="Magento\Payment\Gateway\Config\Config">
+        <arguments>
+            <argument name="methodCode" xsi:type="const">\Cenpos\SimpleWebpay\Model\Ui\ConfigProvider::CODE</argument>
+        </arguments>
+    </virtualType>
+
+    
+
+    <!-- Commands infrastructure -->
+    <virtualType name="SimpleWebpayGatewayCommandPool" type="Magento\Payment\Gateway\Command\CommandPool">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="authorize" xsi:type="string">SimpleWebpayGatewayAuthorizeCommand</item>
+                <item name="capture" xsi:type="string">SimpleWebpayGatewayCaptureCommand</item>
+                <item name="void" xsi:type="string">SimpleWebpayGatewayVoidCommand</item>
+                <item name="refund" xsi:type="string">SimpleWebpayGatewayRefundCommand</item>
+                <item name="cancel" xsi:type="string">SimpleWebpayGatewayCancelCommand</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Authorize command -->
+    <virtualType name="SimpleWebpayGatewayAuthorizeCommand" type="Magento\Payment\Gateway\Command\GatewayCommand">
+        <arguments>
+            <argument name="requestBuilder" xsi:type="object">SimpleWebpayGatewayAuthorizationRequest</argument>
+            <argument name="handler" xsi:type="object">SimpleWebpayGatewayResponseHandlerComposite</argument>
+            <argument name="transferFactory" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\TransferFactory</argument>
+            <argument name="client" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\Client\ClientMock</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Authorization Request -->
+    <virtualType name="SimpleWebpayGatewayAuthorizationRequest" type="Magento\Payment\Gateway\Request\BuilderComposite">
+        <arguments>
+            <argument name="builders" xsi:type="array">
+                <item name="transaction" xsi:type="string">Cenpos\SimpleWebpay\Gateway\Request\AuthorizationRequest</item>
+                <item name="mockData" xsi:type="string">Cenpos\SimpleWebpay\Gateway\Request\MockDataRequest</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <type name="Cenpos\SimpleWebpay\Gateway\Request\AuthorizationRequest">
+        <arguments>
+            <argument name="config" xsi:type="object">SimpleWebpayGatewayConfig</argument>
+        </arguments>
+    </type>
+
+    <!-- Capture command -->
+    <virtualType name="SimpleWebpayGatewayCaptureCommand" type="Magento\Payment\Gateway\Command\GatewayCommand">
+        <arguments>
+            <argument name="requestBuilder" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Request\CaptureRequest</argument>
+            <argument name="handler" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Response\CaptureHandler</argument>
+            <argument name="transferFactory" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\TransferFactory</argument>
+            <argument name="validator" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Validator\ResponseCodeValidator</argument>
+            <argument name="client" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\Client\ClientMock</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Capture Request -->
+    <type name="Cenpos\SimpleWebpay\Gateway\Request\CaptureRequest">
+        <arguments>
+            <argument name="config" xsi:type="object">SimpleWebpayGatewayConfig</argument>
+        </arguments>
+    </type>
+
+    <!-- Void command -->
+    <virtualType name="SimpleWebpayGatewayVoidCommand" type="Magento\Payment\Gateway\Command\GatewayCommand">
+        <arguments>
+            <argument name="requestBuilder" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Request\VoidRequest</argument>
+            <argument name="handler" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Response\VoidHandler</argument>
+            <argument name="transferFactory" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\TransferFactory</argument>
+            <argument name="validator" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Validator\ResponseCodeValidator</argument>
+            <argument name="client" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\Client\ClientMock</argument>
+        </arguments>
+    </virtualType>
+    
+    <!-- Void command -->
+    <virtualType name="SimpleWebpayGatewayCancelCommand" type="Magento\Payment\Gateway\Command\GatewayCommand">
+        <arguments>
+            <argument name="requestBuilder" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Request\VoidRequest</argument>
+            <argument name="handler" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Response\CancelHandler</argument>
+            <argument name="transferFactory" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\TransferFactory</argument>
+            <argument name="validator" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Validator\ResponseCodeValidator</argument>
+            <argument name="client" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\Client\ClientMock</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Void Request -->
+    <type name="Cenpos\SimpleWebpay\Gateway\Request\VoidRequest">
+        <arguments>
+            <argument name="config" xsi:type="object">SimpleWebpayGatewayConfig</argument>
+        </arguments>
+    </type>
+    
+    <!-- Refund command -->
+    <virtualType name="SimpleWebpayGatewayRefundCommand" type="Magento\Payment\Gateway\Command\GatewayCommand">
+        <arguments>
+            <argument name="requestBuilder" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Request\RefundRequest</argument>
+            <argument name="handler" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Response\TxnIdHandler</argument>
+            <argument name="transferFactory" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\TransferFactory</argument>
+            <argument name="validator" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Validator\ResponseCodeValidator</argument>
+            <argument name="client" xsi:type="object">Cenpos\SimpleWebpay\Gateway\Http\Client\ClientMock</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Refund Request -->
+    <type name="Cenpos\SimpleWebpay\Gateway\Request\RefundRequest">
+        <arguments>
+            <argument name="config" xsi:type="object">SimpleWebpayGatewayConfig</argument>
+        </arguments>
+    </type>
+
+    <!-- Response handlers -->
+    <virtualType name="SimpleWebpayGatewayResponseHandlerComposite" type="Magento\Payment\Gateway\Response\HandlerChain">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="txnid" xsi:type="string">Cenpos\SimpleWebpay\Gateway\Response\AuthHandler</item>
+                <item name="fraud" xsi:type="string">Cenpos\SimpleWebpay\Gateway\Response\FraudHandler</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Value handlers infrastructure -->
+    <virtualType name="SimpleWebpayGatewayValueHandlerPool" type="Magento\Payment\Gateway\Config\ValueHandlerPool">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="default" xsi:type="string">SimpleWebpayGatewayConfigValueHandler</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="SimpleWebpayGatewayConfigValueHandler" type="Magento\Payment\Gateway\Config\ConfigValueHandler">
+        <arguments>
+            <argument name="configInterface" xsi:type="object">SimpleWebpayGatewayConfig</argument>
+        </arguments>
+    </virtualType>
+
+    <type name="Cenpos\SimpleWebpay\Block\Info">
+        <arguments>
+            <argument name="config" xsi:type="object">SimpleWebpayGatewayConfig</argument>
+        </arguments>
+    </type>
+
+</config>

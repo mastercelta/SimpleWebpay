@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © 2016 Magento. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="payment_method_assign_data">
+        <observer name="swppayment_data_assign" instance="Cenpos\SimpleWebpay\Observer\DataAssignObserver" />
+    </event>
+    <event name="checkout_onepage_controller_success_action">
+       <observer name="swppayment_controller_success_action" instance="Cenpos\SimpleWebpay\Observer\AfterPlaceOrderObserver" />
+   </event>
+   <event name="sales_order_place_after">
+       <observer name="swppayment_order_place_after" instance="Cenpos\SimpleWebpay\Observer\AfterPlaceOrderObserver" />
+   </event>
+   <event name="sales_order_save_after">
+       <observer name="swppayment_order_save_after" instance="Cenpos\SimpleWebpay\Observer\AfterSaveOrderObserver" />
+   </event>
+    <event name="adminhtml_customer_orders_add_action_renderer">
+       <observer name="swppayment_customer_orders_add_action_renderer" instance="Cenpos\SimpleWebpay\Observer\ReOrderObserver" />
+   </event>
+</config>
