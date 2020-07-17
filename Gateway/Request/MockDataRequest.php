@@ -15,7 +15,7 @@ class MockDataRequest extends CommonRequest
     const TXN_TYPE = 'TXN_TYPE';
     const CODE = 'swppayment';
     const AUTH = 'authorize';
-    protected $orderI;
+    protected $ordern;
     /**
      * Builds ENV request
      *
@@ -27,11 +27,12 @@ class MockDataRequest extends CommonRequest
      */
 
     public function __construct(
-        \Magento\Framework\Message\ManagerInterface $messageManager
+        \Magento\Framework\Message\ManagerInterface $messageManager,
+        \Magento\Sales\Model\Order $orders
        // \Magento\Sales\Api\Data\OrderInterface $orderinterface
     ) {
         $this->_messageManager = $messageManager;
-       // $this->orderI = $orderinterface;
+        $this->ordern = $orders;
     }
 
     public function build(array $buildSubject)
@@ -81,9 +82,8 @@ class MockDataRequest extends CommonRequest
                 //Check if amount is greater that original in case edit order
 
                 if($isEdit){
-                    $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
                     if($orderedit[1] > 1) $invoice .= (string)(number_format ($orderedit[1]) - 1); 
-                    $oldorder = $objectManager->create('\Magento\Sales\Model\Order')->loadByIncrementId($invoice);
+                    $oldorder = $this->ordern->loadByIncrementId($invoice);
                    // print_r(get_class_methods($oldorder));
                     $transactionold = $this->getAuth($oldorder->getId());
                     if($transactionold == null) throw new \Exception("There is no transaction to reauth");
@@ -183,8 +183,11 @@ class MockDataRequest extends CommonRequest
                 if($isEdit){
                     throw new \InvalidArgumentException($ResponseSave->Message);
                 }else{
-                    echo json_encode($ResponseSave);
-                    die();
+                    if($ResponseSave->Result === -1){
+                        throw new \Magento\Framework\Exception\LocalizedException(__($ResponseSave->Message));
+                    }else if ($ResponseSave->Result === 21){
+                        throw new \Magento\Framework\Exception\LocalizedException(__(json_encode($ResponseSave)));
+                    }
                 }
             }
                      

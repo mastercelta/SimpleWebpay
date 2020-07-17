@@ -1,30 +1,41 @@
 <?php
-namespace Cenpos\SimpleWebpay\Block\Customer;
-class ManageToken extends \Magento\Framework\View\Element\Template
-{
+namespace Cenpos\SimpleWebpay\Controller\Customer;
+
+class CreateSessionCard extends \Magento\Framework\App\Action\Action {
+    
+    protected $_customerSession;
+    protected $resultPageFactory;
+    protected $_paymentMethod;
+    protected $_checkoutSession;
+    protected $checkout;
+    protected $cartManagement;
+    protected $guestcartManagement;
+    protected $orderRepository;
+    protected $_scopeConfig;
     protected $_coreRegistry;
-    protected $_customerSession2;
-    protected $_urlsession;
+    protected $cartObj;
+
     public function __construct(
-        \Magento\Framework\View\Element\Template\Context $context,
-        \Magento\Framework\Registry $coreRegistry,
+        \Magento\Framework\App\Action\Context $context,
         \Magento\Customer\Model\Session $customerSession,
         \Cenpos\SimpleWebpay\Model\Ui\ConfigProvider $paymentMethod,
         \Magento\Checkout\Model\Session $checkoutSession,
-        \Magento\Framework\UrlInterface $url,
-        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
+        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
+        \Magento\Framework\Registry $coreRegistry,
+        \Magento\Checkout\Model\Cart $cart
     ) {
+        $this->_customerSession = $customerSession;
+        parent::__construct($context);
         $this->_coreRegistry = $coreRegistry;
         $this->_paymentMethod = $paymentMethod;
-        $this->_customerSession2 = $customerSession;
-        $this->_urlsession = $url;
         $this->_checkoutSession = $checkoutSession;
         $this->orderRepository = $orderRepository;
-        parent::__construct($context);
+        $this->_scopeConfig = $scopeConfig;
+        $this->cartObj = $cart;
     }
 
-    public function getcardmanager()
-    {
+    public function execute() {
         $ResponseSave = new \stdClass();
         $ResponseSave->Result = -1;
         $ResponseSave->Message = "Incomplete";
@@ -35,11 +46,7 @@ class ManageToken extends \Magento\Framework\View\Element\Template
                 throw new \Exception("The url credit card must be configured");
             }
 
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-
-            $cartObj = $objectManager->get('\Magento\Checkout\Model\Cart');
-
-            $billingAddressInfo = $cartObj->getQuote()->getBillingAddress();
+            $billingAddressInfo = $this->cartObj->getQuote()->getBillingAddress();
 
             $dataAddress = $billingAddressInfo->getData();
 
@@ -56,15 +63,15 @@ class ManageToken extends \Magento\Framework\View\Element\Template
             } 
 
             $this->_coreRegistry->register('urloption', $this->_paymentMethod->getConfigData('url'));
+         
             $ch = curl_init($this->_paymentMethod->getConfigData('url')."/?app=genericcontroller&action=siteVerify");
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt ($ch, CURLOPT_POST, 1);
             $email = "";
-            $customer = $this->_customerSession2->getCustomer();
+            $customer = $this->_customerSession->getCustomer();
             
             $postSend = "secretkey=".$this->_paymentMethod->getConfigData('secretkey');
             $postSend .= "&merchant=".$this->_paymentMethod->getConfigData('merchantid');
-
             if($customer){
                 if($customer->getData()["email"]) $postSend .= "&email=".$customer->getData()["email"];
                 if($customer->getData()["entity_id"]) $postSend .= "&customercode=".$customer->getData()["entity_id"];
@@ -94,16 +101,7 @@ class ManageToken extends \Magento\Framework\View\Element\Template
         
         $ResponseSave->Url = $this->_paymentMethod->getConfigData('url_view');
         
-        return $ResponseSave;
-    }
-
-    public function geturlsession()
-    {
-        return  $this->_urlsession->getUrl("simplewebpay/customer/createsessioncard");
-    }
-
-    public function geturlprocess()
-    {
-        return  $this->_paymentMethod->getConfigData('url_view');
+        echo json_encode($ResponseSave);
+      
     }
 }

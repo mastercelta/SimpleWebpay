@@ -36,7 +36,6 @@ class Index extends \Magento\Framework\App\Action\Action {
 
         $this->_view->loadLayout();
 
-       // $this->_coreRegistry->register('current_product', $email);
         $this->_view->renderLayout();
     }
 }

@@ -14,6 +14,8 @@ class CaptureHandler implements HandlerInterface
     const FORCE_RESULT = 'FORCE_RESULT';
     const TXN_TYPE = 'TXN_TYPE';
     const CODE = 'swppayment';
+    protected $trans;
+    protected $orderi;
     /**
      * Handles transaction id
      *
@@ -23,9 +25,11 @@ class CaptureHandler implements HandlerInterface
      */
     
     public function __construct(
-        \Magento\Framework\Message\ManagerInterface $messageManager
+        \Magento\Framework\Message\ManagerInterface $messageManager,
+        \Magento\Sales\Model\Order\Payment\Transaction $transact
     ) {
         $this->_messageManager = $messageManager;
+        $this->trans = $transact;
     }
     
     public function handle(array $handlingSubject, array $response)
@@ -41,11 +45,8 @@ class CaptureHandler implements HandlerInterface
 
         $payment = $paymentDO->getPayment();
         $order = $paymentDO->getOrder();
-        //print_r(get_class_methods($order));
-        //print_r($order->getid());
-        //die();
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $model = $objectManager->create('Magento\Sales\Model\Order\Payment\Transaction')->getCollection();
+        
+        $model = $this->trans->getCollection();
         
         $data = $model->addAttributeToFilter('order_id', array('eq' => $order->getid()))
                 ->addAttributeToFilter('txn_type', array('eq' => \Magento\Sales\Model\Order\Payment\Transaction::TYPE_AUTH));
@@ -53,9 +54,9 @@ class CaptureHandler implements HandlerInterface
         $data = json_decode(json_encode($data->toArray()), FALSE);
         
         $ReferenceNumber = "";
-        
+        $idTransaction = -1;
         $ResponseSave = new \stdClass();
-       // $this->config->getValue('payment_action');
+        $ResponseSave->Result = -1;
         $thisss = $payment->getMethodInstance(self::CODE);
         
         $isForce = false;
@@ -69,6 +70,7 @@ class CaptureHandler implements HandlerInterface
         
         if ($isForce) {
             try{
+
                 $ip = $_SERVER["REMOTE_ADDR"];
                 if($thisss->getConfigData('url') == null || $thisss->getConfigData('url') == "" ){
                     throw new \Exception("The url credit card must be configured");
@@ -143,7 +145,6 @@ class CaptureHandler implements HandlerInterface
                     "Message","RecurringTokenId","InvoiceNumber","OriginalAmount");
                 foreach ($ResponseSave as $key => $value) {
                     if(in_array($key, $inarray) && $key !="extension_attributes") {
-                     //   array_push($newData, $value)
                         $payment->setAdditionalInformation("Force".$key, $value);
                     }
                 }
@@ -153,116 +154,118 @@ class CaptureHandler implements HandlerInterface
             }
         }else{
         
-        $Is3dsecure = $payment->getAdditionalInformation("ReferenceNumber");
-        
-        if($payment->getAdditionalInformation("ReferenceNumber") != "" && $payment->getAdditionalInformation("ReferenceNumber") != NULL){
-            $ResponseSave->Message =  $payment->getAdditionalInformation("Message");
-            $ResponseSave->Result =  $payment->getAdditionalInformation("Result");
-        }else{
-            try{
-                $ip = $_SERVER["REMOTE_ADDR"];
-                if($thisss->getConfigData('url') == null || $thisss->getConfigData('url') == "" ){
-                    throw new \Exception("The url credit card must be configured");
+            $Is3dsecure = $payment->getAdditionalInformation("ReferenceNumber");
+            
+            if($payment->getAdditionalInformation("ReferenceNumber") != "" && $payment->getAdditionalInformation("ReferenceNumber") != NULL){
+                $ResponseSave->Message =  $payment->getAdditionalInformation("Message");
+                $ResponseSave->Result =  $payment->getAdditionalInformation("Result");
+            }else{
+                try{
+                    $ip = $_SERVER["REMOTE_ADDR"];
+                    if($thisss->getConfigData('url') == null || $thisss->getConfigData('url') == "" ){
+                        throw new \Exception("The url credit card must be configured");
+                    }
+
+                    $RecurringSaleTokenId = $payment->getAdditionalInformation("webpayrecurringsaletokenid");
+
+                    if(empty($RecurringSaleTokenId)) {
+                        throw new \Exception("the data crypto cant be empty");
+                    }
+
+                    $billingAddressInfo = $order->getBillingAddress();
+                    $amount = $order->getGrandTotalAmount();
+                    $invoice = $idTransaction = $order->getOrderIncrementId();
+
+                    $ch = curl_init($thisss->getConfigData('url')."/?app=genericcontroller&action=siteVerify");
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt ($ch, CURLOPT_POST, 1);
+
+                    $postSend = "secretkey=".$thisss->getConfigData('secretkey');
+                    $postSend .= "&merchant=".$thisss->getConfigData('merchantid');
+                    $postSend .= "&address=".$billingAddressInfo->getStreetLine1();
+                    $postSend .= "&amount=".$amount;
+                    $postSend .= "&invoicenumber=".$invoice;
+                    $postSend .= "&state=".$billingAddressInfo->getRegionCode();
+                    $postSend .= "&city=".$billingAddressInfo->getCity();
+                    $postSend .= "&type=Sale";
+                    $postSend .= "&type3d=FunctionAuto";
+                    $postSend .= "&cardinalreturn=returnCardinalMag";
+                    $postSend .= "&zipcode=".$billingAddressInfo->getPostcode();
+                    $postSend .= "&tokenid=".$RecurringSaleTokenId;
+                    if(!empty($billingAddressInfo->getCustomerId())) $postSend .= "&customercode=".$billingAddressInfo->getCustomerId();
+                    $postSend .= "&email=".$billingAddressInfo->getEmail();
+                    $postSend .= "&ip=$ip";
+
+                    curl_setopt ($ch, CURLOPT_POSTFIELDS, $postSend);
+
+                    curl_setopt($ch,CURLOPT_RETURNTRANSFER, true);
+
+                    $ResponseSave = curl_exec($ch);
+
+                    $error = curl_error($ch);
+                    curl_close ($ch);
+                    if(!empty($error))  {
+                        throw new \Exception($error);
+                    }
+
+                    $ResponseSave = json_decode($ResponseSave);
+                    if($ResponseSave->Result != 0) {
+                        throw new \Exception($ResponseSave->Message);
+                    }
+                    $endpoint = (strpos(strtoupper($RecurringSaleTokenId), 'CRYPTO') !== false) ? "UseCrypto" : "UseToken";
+
+                    $chProcess = curl_init($thisss->getConfigData('url')."/api/$endpoint/");
+
+                    curl_setopt($chProcess, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt ($chProcess, CURLOPT_POST, 1);
+
+                    $postProces = "verifyingpost=".$ResponseSave->Data;
+                    $postProces .= "&tokenid=".$RecurringSaleTokenId;
+
+                    curl_setopt ($chProcess, CURLOPT_POSTFIELDS, $postProces);
+
+                    curl_setopt($chProcess,CURLOPT_RETURNTRANSFER, true);
+
+                    $ResponseSave = curl_exec($chProcess);
+
+                    $error = curl_error($chProcess);
+
+                    curl_close ($chProcess);
+                    if(!empty($error))  {
+                        throw new \Exception($error);
+                    }
+
+                    $ResponseSave = json_decode($ResponseSave);
+                    if($ResponseSave->Result !== 0 && $ResponseSave->Result !== 21){
+                        throw new \Exception($ResponseSave->Message);
+                    }
+                } catch (\Exception $ex) {
+                    $ResponseSave->Message = $ex->getMessage();
+                    $ResponseSave->Result = -1;
                 }
 
-                $RecurringSaleTokenId = $payment->getAdditionalInformation("webpayrecurringsaletokenid");
-
-                if(empty($RecurringSaleTokenId)) {
-                    throw new \Exception("the data crypto cant be empty");
-                }
-
-                $billingAddressInfo = $order->getBillingAddress();
-                $amount = $order->getGrandTotalAmount();
-                $invoice = $order->getOrderIncrementId();
-
-                $ch = curl_init($thisss->getConfigData('url')."/?app=genericcontroller&action=siteVerify");
-                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt ($ch, CURLOPT_POST, 1);
-
-                $postSend = "secretkey=".$thisss->getConfigData('secretkey');
-                $postSend .= "&merchant=".$thisss->getConfigData('merchantid');
-                $postSend .= "&address=".$billingAddressInfo->getStreetLine1();
-                $postSend .= "&amount=".$amount;
-                $postSend .= "&invoicenumber=".$invoice;
-                $postSend .= "&state=".$billingAddressInfo->getRegionCode();
-                $postSend .= "&city=".$billingAddressInfo->getCity();
-                $postSend .= "&type=Sale";
-                $postSend .= "&type3d=FunctionAuto";
-                $postSend .= "&cardinalreturn=returnCardinalMag";
-                $postSend .= "&zipcode=".$billingAddressInfo->getPostcode();
-                $postSend .= "&tokenid=".$RecurringSaleTokenId;
-                if(!empty($billingAddressInfo->getCustomerId())) $postSend .= "&customercode=".$billingAddressInfo->getCustomerId();
-                $postSend .= "&email=".$billingAddressInfo->getEmail();
-                $postSend .= "&ip=$ip";
-
-                curl_setopt ($ch, CURLOPT_POSTFIELDS, $postSend);
-
-                curl_setopt($ch,CURLOPT_RETURNTRANSFER, true);
-
-                $ResponseSave = curl_exec($ch);
-
-                $error = curl_error($ch);
-                curl_close ($ch);
-                if(!empty($error))  {
-                    throw new \Exception($error);
-                }
-
-                $ResponseSave = json_decode($ResponseSave);
-                if($ResponseSave->Result != 0) {
-                    throw new \Exception($ResponseSave->Message);
-                }
-                $endpoint = (strpos(strtoupper($RecurringSaleTokenId), 'CRYPTO') !== false) ? "UseCrypto" : "UseToken";
-
-                $chProcess = curl_init($thisss->getConfigData('url')."/api/$endpoint/");
-
-                curl_setopt($chProcess, CURLOPT_SSL_VERIFYPEER, false);
-                curl_setopt ($chProcess, CURLOPT_POST, 1);
-
-                $postProces = "verifyingpost=".$ResponseSave->Data;
-                $postProces .= "&tokenid=".$RecurringSaleTokenId;
-
-                curl_setopt ($chProcess, CURLOPT_POSTFIELDS, $postProces);
-
-                curl_setopt($chProcess,CURLOPT_RETURNTRANSFER, true);
-
-                $ResponseSave = curl_exec($chProcess);
-
-                $error = curl_error($chProcess);
-
-                curl_close ($chProcess);
-                if(!empty($error))  {
-                    throw new \Exception($error);
-                }
-
-                $ResponseSave = json_decode($ResponseSave);
-                if($ResponseSave->Result !== 0 && $ResponseSave->Result !== 21){
-                    throw new \Exception($ResponseSave->Message);
-                }
-            } catch (\Exception $ex) {
-                $ResponseSave->Message = $ex->getMessage();
-                $ResponseSave->Result = -1;
-            }
-
-            if($ResponseSave->Result === -1 || $ResponseSave->Result === 21){
-                echo json_encode($ResponseSave);
-                die();
-            }
-         //   $newData = array();    
-            if($ResponseSave->Result === 0){
-                $inarray = array("Result","AutorizationNumber","ReferenceNumber","TraceNumber","Amount","CardType",
-                    "Message","RecurringTokenId","InvoiceNumber","OriginalAmount");
-                foreach ($ResponseSave as $key => $value) {
-                    if(in_array($key, $inarray) && $key !="extension_attributes") {
-                     //   array_push($newData, $value)
-                        $payment->setAdditionalInformation($key, $value);
+                if($ResponseSave->Result === 0 || $ResponseSave->Result === 21){
+                    $inarray = array("Result","AutorizationNumber","ReferenceNumber","TraceNumber","Amount","CardType",
+                        "Message","RecurringTokenId","InvoiceNumber","OriginalAmount");
+                    foreach ($ResponseSave as $key => $value) {
+                        if(in_array($key, $inarray) && $key !="extension_attributes") {
+                            $payment->setAdditionalInformation($key, $value);
+                        }
                     }
                 }
+
+                if($ResponseSave->Result === -1){
+                    throw new \Magento\Framework\Exception\LocalizedException(__($ResponseSave->Message));
+                }else if ($ResponseSave->Result === 21){
+                    throw new \Magento\Framework\Exception\LocalizedException(__(json_encode($ResponseSave)));
+                }
             }
         }
+
+        if($ResponseSave->Result === 0){
+            $payment->setTransactionId($payment->getAdditionalInformation("ReferenceNumber"));
+            $payment->setIsTransactionClosed(true);
         }
-    //    $payment->setTransactionAdditionalInfo(\Magento\Sales\Model\Order\Payment\Transaction::RAW_DETAILS, $newData);
-        $payment->setTransactionId($payment->getAdditionalInformation("ReferenceNumber"));
-        $payment->setIsTransactionClosed(true);
         
     }
 }

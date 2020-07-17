@@ -42,7 +42,9 @@ class Index extends \Magento\Framework\App\Action\Action
                 throw new \Exception("The url credit card must be configured");
             }
             $RecurringSaleTokenId = $_POST["RecurringSaleTokenId"];
-            if(empty($RecurringSaleTokenId)) {throw new Exception("the data crypto cant be empty");}
+            if(empty($RecurringSaleTokenId)) {
+                throw new Exception("the data crypto cant be empty");
+            }
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
 
             $cartObj = $objectManager->get('\Magento\Checkout\Model\Cart');
@@ -51,10 +53,18 @@ class Index extends \Magento\Framework\App\Action\Action
 
             $dataAddress = $billingAddressInfo->getData();
 
-            $Street = $dataAddress["street"];
-            if (strpos($Street, "\n") !== FALSE) {
-                $Street = str_replace("\n", " ", $Street);
-            }
+            $Street = "";
+            if($dataAddress != null && array_key_exists("street", $dataAddress)){
+                if (strpos($dataAddress['street'], "\n") !== FALSE) {
+                    $Street = str_replace("\n", " ", $dataAddress['street']);
+                }
+                else{
+                    $Street = $dataAddress['street'];
+                } 
+            }else {
+                $Street = "";
+            } 
+
 
             $ch = curl_init($this->_paymentMethod->getConfigData('url')."/?app=genericcontroller&action=siteVerify");
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
@@ -121,6 +131,5 @@ class Index extends \Magento\Framework\App\Action\Action
         }
         
         echo json_encode($ResponseSave);
-        //return json_encode($ResponseSave);
     }
 }

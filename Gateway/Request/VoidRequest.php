@@ -50,10 +50,6 @@ class VoidRequest implements BuilderInterface
             throw new \LogicException('Order payment should be provided.');
         }
        
-                
-       // die("");
-        
-        //$payment->void($payment->getLastTransId());
         return [
             'TXN_TYPE' => 'V',
             'TXN_ID' => $payment->getLastTransId()

@@ -49,84 +49,18 @@ final class ConfigProvider implements ConfigProviderInterface
                         ClientMock::SUCCESS => __('Success'),
                         ClientMock::FAILURE => __('Fraud')
                     ],
-                    'verifyingPost' => $this->getConfigSimpleWebpay(),
                     'url' => $this->method->getConfigData('url'),
                     'urlprocess' => $this->method->getConfigData('url_view'),
                     'iscvv' => ($this->method->getConfigData('iscvv') === "1")? "true" : "false",
+                    'istoken19' => ($this->method->getConfigData('usetoken') === "token19")? "true" : "false",
                     'usetoken' => ($this->method->getConfigData('usetoken') === "1")? "true" : "false",
                     'urlsave' =>  $this->urlBuilder->getUrl("simplewebpay/index/index"),
+                    'urlsession' =>  $this->urlBuilder->getUrl("simplewebpay/index/SessionData"),
                     'url3d' => $this->urlBuilder->getUrl("simplewebpay/index/process"),
                     'urlimage' => $this->getImage("Cenpos_SimpleWebpay::images/loader.gif")
                 ]
             ]
         ];
-    }
-    //Get fixed amount
-    public function getConfigSimpleWebpay()
-    {
-        $ip = $_SERVER["REMOTE_ADDR"];
-    //            die();
-        try{
-              if($this->method->getConfigData('url') == null || $this->method->getConfigData('url') == "" ) $this->throwMessageCustom("The url credit card must be configured");
-
-              $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-
-              $cartObj = $objectManager->get('\Magento\Checkout\Model\Cart');
-
-              $billingAddressInfo = $cartObj->getQuote()->getBillingAddress();
-
-              $dataAddress = $billingAddressInfo->getData();
-
-              $Street = $dataAddress["street"];
-              if (strpos($Street, "\n") !== FALSE) {
-                  $Street = str_replace("\n", " ", $Street);
-              }
-
-          //    print_r(get_class_methods($this->_checkoutSession->getQuote()));
-
-         //     print_r($this->_checkoutSession->getQuote()->getCustomerIsGuest());
-
-          //    print_r($this->_checkoutSession->getStepData());
-
-           //   die();
-    //
-              $ch = curl_init($this->method->getConfigData('url')."?app=genericcontroller&action=siteVerify");
-              curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-              curl_setopt ($ch, CURLOPT_POST, 1);
-
-              $postSend = "secretkey=".$this->method->getConfigData('secretkey');
-              $postSend .= "&merchant=".$this->method->getConfigData('merchantid');
-              $postSend .= "&address=".$Street;
-              $postSend .= "&isrecaptcha=false";
-              $postSend .= "&zipcode=".$dataAddress["postcode"];
-              if ($this->_customerSession->isLoggedIn()) {
-                  $customerData = $this->_customerSession->getCustomer();
-                  $postSend .= "&customercode=".$customerData->getId();
-              }
-              $postSend .= "&email=".$dataAddress["email"];
-              $postSend .= "&ip=$ip";
-              curl_setopt ($ch, CURLOPT_POSTFIELDS, $postSend);
-
-              curl_setopt($ch,CURLOPT_RETURNTRANSFER, true);
-
-              $response = curl_exec($ch);
-
-              $error = curl_error($ch);
-              curl_close ($ch);
-              if(!empty($error))  {
-                  $this->throwMessageCustom($error, "", self::THROW_ERROR);
-              }
-
-              $response = json_decode($response);
-              if($response->Result != 0) {
-                  $this->throwMessageCustom($response->Message, "", self::THROW_ERROR);
-              }
-
-        } catch (Exception $ex) {
-            $this->throwMessageCustom($ex->getMessage());
-        }
-    //            
-        return $response->Data;
     }
     
     public function getImage($name){

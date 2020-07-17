@@ -1,39 +1,44 @@
-<?php
-namespace Cenpos\SimpleWebpay\Block\Customer;
-class ManageToken extends \Magento\Framework\View\Element\Template
+<?php 
+namespace Cenpos\SimpleWebpay\Controller\Index;
+
+class SessionData extends \Magento\Framework\App\Action\Action
 {
-    protected $_coreRegistry;
-    protected $_customerSession2;
-    protected $_urlsession;
+    protected $_customerSession;
+    protected $resultPageFactory;
+    protected $_paymentMethod;
+    protected $_checkoutSession;
+    protected $checkout;
+    protected $cartManagement;
+    protected $guestcartManagement;
+    protected $orderRepository;
+    protected $_scopeConfig;
+    
+    /**
+     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Customer\Model\Session $customerSession
+     */
     public function __construct(
-        \Magento\Framework\View\Element\Template\Context $context,
-        \Magento\Framework\Registry $coreRegistry,
+        \Magento\Framework\App\Action\Context $context,
         \Magento\Customer\Model\Session $customerSession,
         \Cenpos\SimpleWebpay\Model\Ui\ConfigProvider $paymentMethod,
         \Magento\Checkout\Model\Session $checkoutSession,
-        \Magento\Framework\UrlInterface $url,
-        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
+        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
     ) {
-        $this->_coreRegistry = $coreRegistry;
+        $this->_customerSession = $customerSession;
+        parent::__construct($context);
         $this->_paymentMethod = $paymentMethod;
-        $this->_customerSession2 = $customerSession;
-        $this->_urlsession = $url;
         $this->_checkoutSession = $checkoutSession;
         $this->orderRepository = $orderRepository;
-        parent::__construct($context);
+        $this->_scopeConfig = $scopeConfig;
     }
 
-    public function getcardmanager()
+    public function execute()
     {
         $ResponseSave = new \stdClass();
-        $ResponseSave->Result = -1;
-        $ResponseSave->Message = "Incomplete";
-        $ResponseSave->Data = "";
         try{
             $ip = $_SERVER["REMOTE_ADDR"];
-            if($this->_paymentMethod->getConfigData('url') == null || $this->_paymentMethod->getConfigData('url') == "" ){
-                throw new \Exception("The url credit card must be configured");
-            }
+            if($this->_paymentMethod->getConfigData('url') == null || $this->_paymentMethod->getConfigData('url') == "" ) $this->throwMessageCustom("The url credit card must be configured");
 
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
 
@@ -50,25 +55,25 @@ class ManageToken extends \Magento\Framework\View\Element\Template
                 }
                 else{
                     $Street = $dataAddress['street'];
-                } 
+                }
             }else {
                 $Street = "";
             } 
 
-            $this->_coreRegistry->register('urloption', $this->_paymentMethod->getConfigData('url'));
-            $ch = curl_init($this->_paymentMethod->getConfigData('url')."/?app=genericcontroller&action=siteVerify");
+            $ch = curl_init($this->_paymentMethod->getConfigData('url')."?app=genericcontroller&action=siteVerify");
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt ($ch, CURLOPT_POST, 1);
-            $email = "";
-            $customer = $this->_customerSession2->getCustomer();
-            
+
             $postSend = "secretkey=".$this->_paymentMethod->getConfigData('secretkey');
             $postSend .= "&merchant=".$this->_paymentMethod->getConfigData('merchantid');
-
-            if($customer){
-                if($customer->getData()["email"]) $postSend .= "&email=".$customer->getData()["email"];
-                if($customer->getData()["entity_id"]) $postSend .= "&customercode=".$customer->getData()["entity_id"];
+            $postSend .= "&address=".$Street;
+            $postSend .= "&isrecaptcha=false";
+            $postSend .= "&zipcode=".$dataAddress["postcode"];
+            if ($this->_customerSession->isLoggedIn()) {
+                $customerData = $this->_customerSession->getCustomer();
+                $postSend .= "&customercode=".$customerData->getId();
             }
+            $postSend .= "&email=".$dataAddress["email"];
             $postSend .= "&ip=$ip";
             curl_setopt ($ch, CURLOPT_POSTFIELDS, $postSend);
 
@@ -77,33 +82,24 @@ class ManageToken extends \Magento\Framework\View\Element\Template
             $ResponseSave = curl_exec($ch);
 
             $error = curl_error($ch);
-            curl_close ($ch);
+            curl_close($ch);
             if(!empty($error))  {
                 throw new \Exception($error);
             }
-
+        
             $ResponseSave = json_decode($ResponseSave);
+
             if($ResponseSave->Result != 0) {
                 throw new \Exception($ResponseSave->Message);
             }
-           
         } catch (\Exception $ex) {
+            if (!isset($ResponseSave)){
+                $ResponseSave = new stdClass();
+            }
             $ResponseSave->Message = $ex->getMessage();
             $ResponseSave->Result = -1;
         }
         
-        $ResponseSave->Url = $this->_paymentMethod->getConfigData('url_view');
-        
-        return $ResponseSave;
-    }
-
-    public function geturlsession()
-    {
-        return  $this->_urlsession->getUrl("simplewebpay/customer/createsessioncard");
-    }
-
-    public function geturlprocess()
-    {
-        return  $this->_paymentMethod->getConfigData('url_view');
+        echo json_encode($ResponseSave);
     }
 }

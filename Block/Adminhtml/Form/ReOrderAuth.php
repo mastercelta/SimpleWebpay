@@ -7,10 +7,5 @@ namespace Cenpos\SimpleWebpay\Block\Form;
 
 class ReOrderAuth extends \Magento\Payment\Block\Form\Cc
 {
-    /**
-     * Checkmo template
-     *
-     * @var string
-     */
     protected $_template = 'Cenpos_SimpleWebpay::form/swppayment.phtml';
 }
