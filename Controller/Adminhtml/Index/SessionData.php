@@ -57,11 +57,15 @@ class SessionData extends Action
 	        $customerEmail = $this->getRequest()->getParam('email');
 
 	        if (!empty($customerEmail)) {
-	        	$customer = $this->_customerRepository->get($customerEmail);
-		        if($customer) {
-			        $postSend .= "&customercode=" . $customer->getId();
-			        $postSend .= "&email=" . $customerEmail;
-		        }
+	            try {
+                    $customer = $this->_customerRepository->get($customerEmail);
+                    if($customer) {
+                        $postSend .= "&customercode=" . $customer->getId();
+                        $postSend .= "&email=" . $customerEmail;
+                    }
+                } catch (\Exception $e) {
+                    //No worries if we didn't find the customer.
+                }
 	        }
 
             $postSend .= "&ip=$ip";

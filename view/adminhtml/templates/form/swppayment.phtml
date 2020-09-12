@@ -20,6 +20,12 @@
             var webpayinit = false;
             var wascreate = false;
 
+            jQuery('input[name="payment[method]"]').on('click', function() {
+                //Re-enable checkout, it'll be disabled if it needs to be later on.
+                $("#submit_order_top_button").prop('disabled', false);
+                $(".save.primary").prop('disabled', false);
+            });
+
             function createWebpay() {
                 $('.payment-method-result-webpay').html("");
                 $("#NewCenposPlugin").show();
@@ -51,11 +57,13 @@
                             params += "&isemail=true";
                             params += "&iscvv=<?php echo (($block->getIsCvv() == 1) ? 'true' : 'false'); ?>";
                             if("<?php echo $block->getIsToken19(); ?>" === "true") params += "&type=createtoken19";
-                            /*var guestEmail = $('#email').val();
-                            if (guestEmail !== "" && guestEmail !== null && guestEmail !== undefined) {
-                                params += "&email=" + guestEmail;
-                                isToken = false;
-                            }*/
+                            <?php if($block->getIsNewCustomerAdminOrder()) { ?>
+                                var guestEmail = $('#email').val();
+                                if (guestEmail !== "" && guestEmail !== null && guestEmail !== undefined) {
+                                    params += "&email=" + guestEmail;
+                                    isToken = false;
+                                }
+                            <?php } ?>
 
                             params += "&onlyform="+((isToken) ? "false" : "true");
 
@@ -128,7 +136,8 @@
                                         if(msg.Message == "Error in Form"){
                                             $("#NewCenposPlugin iframe").height(530);
                                         }else  $("#NewCenposPlugin iframe").height(510);
-                                        alert("Error", msg.Message , function(){});
+                                        console.log('CENPOS: Canceled: ' + msg.Message);
+                                        alert("Error: " + msg.Message);
                                         //errorProcessor.process(custommsg);
                                     }
                                 });
@@ -158,7 +167,8 @@
 
                             // custommsg.responseText = JSON.stringify({message: msg2.Message});
 
-                            alert("Error", msg2.Message , function(){});
+                            console.log('CENPOS: Bad Result: ' + msg2.Message);
+                            alert("Error: " + msg2.Message);
                             //errorProcessor.process(custommsg);
                             $(".payment-method-result-webpay").append("<a id='ReloadPayment' style='display:block; cursor: pointer'>Reload Payment/a>");
                             $("#ReloadPayment").click(function(){createWebpay();});

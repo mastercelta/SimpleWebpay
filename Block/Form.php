@@ -15,6 +15,9 @@ class Form extends \Magento\Payment\Block\Form
 	/** @var \Magento\Payment\Model\MethodInterface */
 	private $_method;
 
+	/** @var \Magento\Backend\Model\Session\Quote */
+	private $_quoteSession;
+
 	/**
 	 * Form constructor.
 	 * @param Context $context
@@ -25,9 +28,11 @@ class Form extends \Magento\Payment\Block\Form
 	public function __construct(
 		Context $context,
 		PaymentHelper $paymentHelper,
+        \Magento\Backend\Model\Session\Quote $quoteSession,
 		array $data = []
 	) {
 		$this->_method = $paymentHelper->getMethodInstance(ConfigProvider::CODE);
+        $this->_quoteSession = $quoteSession;
 
 		parent::__construct($context, $data);
 	}
@@ -115,4 +120,16 @@ class Form extends \Magento\Payment\Block\Form
 		$params = array('_secure' => $this->_request->isSecure());
 		return $this->_assetRepo->getUrlWithParams($name, $params);
 	}
+
+    /**
+     * @return bool
+     */
+	public function getIsNewCustomerAdminOrder()
+    {
+        try {
+            return $this->_quoteSession->getOrder()->getCustomerId() == 0;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
 }
