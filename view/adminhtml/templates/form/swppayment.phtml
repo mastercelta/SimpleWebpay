@@ -6,9 +6,196 @@
 
 // @codingStandardsIgnoreFile
 /**
- * @var $block \Magento\OfflinePayments\Block\Form\Checkmo
+ * @var $block Cenpos\SimpleWebpay\Block\Form
  */
 ?>
 <fieldset class="admin__fieldset payment-method" id="payment_form_<?php echo $block->escapeHtml($block->getMethodCode()) ?>" style="display:none">
-   
+    <script type="text/javascript">
+        require([
+            'jquery',
+            'porthole',
+            'simplewebpay',
+            'viewprocess'
+        ], function ($, porthole, simplewebpay, viewprocess) {
+            var webpayinit = false;
+            var wascreate = false;
+
+            jQuery('input[name="payment[method]"]').on('click', function() {
+                //Re-enable checkout, it'll be disabled if it needs to be later on.
+                $("#submit_order_top_button").prop('disabled', false);
+                $(".save.primary").prop('disabled', false);
+            });
+
+            function createWebpay() {
+                $('.payment-method-result-webpay').html("");
+                $("#NewCenposPlugin").show();
+                $("#SubmitWebpay").show();
+                $("#submit_order_top_button").prop('disabled', true);
+                $(".save.primary").prop('disabled', true);
+                $("#NewCenposPlugin").html("<div></div>");
+                $("#NewCenposPlugin").html("<div></div>");
+                var isToken = ("<?php echo ($block->getUseToken()) ?>" == "true");
+
+                var sessionParams = "";
+                sessionParams += "?address=" + encodeURIComponent($('#order-billing_address_street0').val().replace('\n', ''));
+                sessionParams += "&zipcode=" + encodeURIComponent($('#order-billing_address_postcode').val());
+                sessionParams += "&email=" + encodeURIComponent($('#email').val());
+
+                $.ajax({
+                    type: "GET",
+                    url: '<?php echo $block->getAdminSession(); ?>' + sessionParams,
+                    beforeSend: function () {
+                        $(".payment-method-result-webpay").append("<div id='loadersavecard' style='background-color: rgba(255,255,255,0.5);width:100%;position: relative;z-index: 100;top: 0;height: 130px;margin-top: -120px;'><img style='display: block;margin: 28px 0 0 71px;float: left;' src='" + '<?php echo $block->getLoaderImage(); ?>' + "' /></div>");
+                    },
+                    success: function (msg2) {
+                        msg2 = $.parseJSON(msg2);
+                        wascreate = false;
+                        $("#loadersavecard").remove();
+                        if (msg2.Result == 0 || msg2.Result == -1) {
+                            var params = "";
+                            params += "verifyingpost=" + encodeURIComponent(msg2.Data);
+                            params += "&isemail=true";
+                            params += "&iscvv=<?php echo (($block->getIsCvv() == 1) ? 'true' : 'false'); ?>";
+                            if("<?php echo $block->getIsToken19(); ?>" === "true") params += "&type=createtoken19";
+                            <?php if($block->getIsNewCustomerAdminOrder()) { ?>
+                            var guestEmail = $('#email').val();
+                            if (guestEmail !== "" && guestEmail !== null && guestEmail !== undefined) {
+                                params += "&email=" + guestEmail;
+                                isToken = false;
+                            }
+                            <?php } ?>
+
+                            params += "&onlyform="+((isToken) ? "false" : "true");
+
+                            $("#NewCenposPlugin > div").createWebpay(
+                                {
+                                    url: '<?php echo $block->getTransactionUrl(); ?>',
+                                    params: params,
+                                    width: "500",
+                                    height: "340",
+                                    sessionToken: true,
+                                    success: function (msg) {
+                                        if (msg !== "Error") {
+                                            $("#NewCenposPlugin").hide();
+                                            if (typeof (msg) !== "object") msg = $.parseJSON(msg);
+                                            if (msg.RecurringSaleTokenId !== null && msg.RecurringSaleTokenId !== "" && msg.RecurringSaleTokenId !== undefined)
+                                                $("#FormWebpay").html("");
+                                            for (var indice in msg) {
+                                                if (indice.toLowerCase() === "recurringsaletokenid") {
+                                                    if (msg[indice].indexOf("CRYPTO") < 0  && isToken) isToken = false;
+                                                }
+                                                if (indice.toLowerCase() === "cardtype" && (<?php echo $block->getIsToken19(); ?> !== "true")) {
+                                                    $(".payment-method-result-webpay").append("<strong>Card Type: </strong>" + msg[indice] + "<br />");
+                                                }
+                                                if (indice.toLowerCase() === "protectedcardnumber") {
+                                                    $(".payment-method-result-webpay").append("<strong>Card Number: </strong>" + msg[indice] + "<br />");
+                                                }
+                                                if (indice.toLowerCase() === "cardexpirationdate") {
+                                                    $(".payment-method-result-webpay").append("<strong>Expiration: </strong>" + msg[indice] + "<br />");
+                                                }
+                                                $("#FormWebpay").append('<input type="hidden" name="payment[webpay' + indice.toLowerCase() + ']" value="' + msg[indice] + '" />')
+                                                this[indice.toLowerCase()] = msg[indice];
+                                            }
+
+                                            if (isToken) {
+                                                $(".payment-method-result-webpay").append("<a id='SendTokenClick' style='display:block; cursor: pointer'>Save card</a>");
+                                                $("#SendTokenClick").click(function () {
+                                                    $.ajax({
+                                                        type: "GET",
+                                                        url: '<?php echo $block->getAdminUrlSave(); ?>?RecurringSaleTokenId=' + encodeURIComponent(msg.RecurringSaleTokenId),
+                                                        beforeSend: function () {
+                                                            $(".payment-method-result-webpay").append("<div id='loadersavecard' style='background-color: rgba(255,255,255,0.5);width:100%;position: relative;z-index: 100;top: 0;height: 130px;margin-top: -120px;'><img style='display: block;margin: 28px 0 0 71px;float: left;' src='" + '<?php echo $block->getLoaderImage(); ?>' + "' /></div>");
+                                                        },
+                                                        success: function (msg) {
+                                                            $("#loadersavecard").remove();
+                                                            msg = $.parseJSON(msg);
+                                                            if (msg.Result == 0) {
+                                                                $("#SendTokenClick").hide();
+                                                            } else {
+                                                                //self.showalert("Error", msg.Message);
+                                                                $("#SendTokenClick").hide();
+                                                            }
+                                                        }
+                                                    });
+                                                });
+                                            }
+                                            $(".payment-method-result-webpay").append("<a id='ChangeCard' style='display:block; cursor: pointer'>Select Another Card</a>");
+                                            $("#ChangeCard").click(function(){createWebpay();});
+                                            wascreate = true;
+                                            $("#SubmitWebpay").hide();
+                                            $("#submit_order_top_button").prop('disabled', false);
+                                            $(".save.primary").prop('disabled', false);
+                                        }
+                                    },
+                                    cancel: function (msg) {
+                                        // var custommsg = {};
+                                        if(<?php echo $block->getIsToken19(); ?> === "true"){
+                                            msg.Message = "There was an error capturing the card data, please try again";
+                                        }
+                                        //custommsg.responseText = JSON.stringify({message: msg.Message});
+                                        if(msg.Message == "Error in Form"){
+                                            $("#NewCenposPlugin iframe").height(530);
+                                        }else  $("#NewCenposPlugin iframe").height(510);
+                                        alert("Error: " + msg.Message);
+                                        //errorProcessor.process(custommsg);
+                                    }
+                                });
+
+                            $(".methods-shipping .continue").hide();
+                            $("#ChangeShippingContinue").show();
+                            if(!webpayinit){
+                                $(".methods-shipping .continue").parent().append("<button type='button' id='ChangeShippingContinue' />");
+                                $("#ChangeShippingContinue").attr("class", $(".methods-shipping .continue").attr("class")).removeClass("continue");
+                                $("#ChangeShippingContinue").html($(".methods-shipping .continue").html());
+                                $("#ChangeShippingContinue").click(function(){
+                                    $(".methods-shipping .continue").show();
+                                    $(".methods-shipping .continue").trigger("click");
+                                    $("#ChangeShippingContinue").hide();
+                                    if(webpayinit) createWebpay();
+                                });
+                                $("#SubmitWebpay").on('click', function () {
+                                    $("#NewCenposPlugin > div").submitAction();
+                                });
+                                $("<style type='text/css'> .dpnoneimpo{ display:none !important} </style>").appendTo("head");
+                            }
+                            webpayinit = true;
+
+                            $("#cenposPayIFrameId").attr("style", "border: none !important;margin-top: 0px;");
+                        } else {
+                            var custommsg = {};
+
+                            // custommsg.responseText = JSON.stringify({message: msg2.Message});
+
+                            alert("Error: " + msg2.Message);
+                            //errorProcessor.process(custommsg);
+                            $(".payment-method-result-webpay").append("<a id='ReloadPayment' style='display:block; cursor: pointer'>Reload Payment/a>");
+                            $("#ReloadPayment").click(function(){createWebpay();});
+                        }
+                    }
+                });
+            }
+
+            createWebpay();
+        });
+    </script>
+
+    <div class="payment-method-result-webpay">
+
+    </div>
+    <div id="NewCenposPlugin" class="simplewebpay" data-target="dropdown">
+
+    </div>
+    <div id="FormWebpay">
+    </div>
+    <div id="Form3dSecure">
+    </div>
+    <input type='hidden' name='CardinalResponse' id='CardinalResponse' />
+    <div class="actions-toolbar">
+        <div class="primary">
+            <button id="SubmitWebpay" class="action primary checkout"
+                    type="button">
+                <span>Continue</span>
+            </button>
+        </div>
+    </div>
 </fieldset>

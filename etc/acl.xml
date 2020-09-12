@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Acl/etc/acl.xsd">
+    <acl>
+        <resources>
+            <resource id="Magento_Backend::admin">
+                <resource id="Cenpos_SimpleWebpay::simplewebpay" sortOrder="10" title="CenPos">
+                    <resource id="Cenpos_SimpleWebpay::index_index" sortOrder="10" title="SimpleWebpay Checkout Initializer"/>
+                    <resource id="Cenpos_SimpleWebpay::index_process" sortOrder="20" title="SimpleWebpay Checkout Processer"/>
+                    <resource id="Cenpos_SimpleWebpay::index_sessiondata" sortOrder="30" title="SimpleWebpay Checkout Session Data"/>
+                </resource>
+            </resource>
+        </resources>
+    </acl>
+</config>
